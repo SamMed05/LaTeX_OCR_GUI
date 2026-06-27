@@ -461,15 +461,31 @@ class MathJaxOCRApp:
         self.spinner.stop()
         self.ocr_busy = False
         self.btn.config(state=tk.NORMAL)
-        # self.status_label.config(text="Done — model ready for the next image", fg="#9ca3af")
         self.status_label.config(text="Done", fg="#9ca3af")
         self.current_latex = latex
         self.update_output_display()
 
         self.ax.clear()
         self.ax.axis('off')
-        self.ax.text(0.5, 0.5, f"${self.current_latex}$", size=16, va='center', ha='center', color='#111827')
-        self.canvas.draw()
+        
+        # 1. Sanitize common items ONLY for the preview canvas string
+        # (This keeps your pristine current_latex untouched for code output/clipboard)
+        preview_latex = self.current_latex.replace(r"\operatorname*{", r"\operatorname{")
+        
+        # 2. Safety wrapper to shield Tkinter from Matplotlib parsing errors
+        try:
+            self.ax.text(0.5, 0.5, f"${preview_latex}$", size=16, va='center', ha='center', color='#111827')
+            self.canvas.draw()
+        except Exception:
+            # Fallback if Matplotlib choked on arrays, matrices, or environments
+            self.ax.clear()
+            self.ax.axis('off')
+            self.ax.text(
+                0.5, 0.5, 
+                "Preview unavailable\n(Matplotlib cannot render this structure,\nbut the LaTeX code below may still be valid)", 
+                size=10, va='center', ha='center', color='#dc2626', weight='bold', style='italic'
+            )
+            self.canvas.draw()
 
     def _on_ocr_error(self, message):
         self.spinner.stop()
