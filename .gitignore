@@ -1,4 +1,5 @@
 *.exe
 *.spec
+*.Ink
 /dist/
 /build/

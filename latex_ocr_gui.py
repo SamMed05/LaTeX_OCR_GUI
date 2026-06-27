@@ -23,7 +23,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # NOTE: pix2tex (and the torch/albumentations stack behind it) is intentionally
 # NOT imported here at module level. Importing it is the slow part of startup,
-# so it's deferred to a background thread in MathJaxOCRApp._load_model_worker.
+# so it's deferred to a background thread in LaTeXOCRApp._load_model_worker.
 # This lets the window appear immediately instead of blocking on the import.
 
 
@@ -106,10 +106,10 @@ class Spinner(tk.Canvas):
         self._job = self.after(45, self._tick)
 
 
-class MathJaxOCRApp:
+class LaTeXOCRApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Formula OCR → MathJax")
+        self.root.title("Formula OCR → LaTeX")
         self.root.geometry("850x520")
         self.root.configure(bg="#ffffff")
 
@@ -258,7 +258,7 @@ class MathJaxOCRApp:
 
         # --- BOTTOM SECTION: TEXT OUTPUT & UTILITY BUTTONS ---
         output_box = tk.LabelFrame(
-            self.root, text=" LaTeX / MathJax Code Output ",
+            self.root, text=" LaTeX Code Output ",
             bg="#ffffff", fg="#4b5563", font=('Helvetica', 9, 'bold'), bd=1, relief=tk.SOLID
         )
         output_box.pack(fill=tk.X, padx=20, pady=10)
@@ -539,5 +539,5 @@ class MathJaxOCRApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = MathJaxOCRApp(root)
+    app = LaTeXOCRApp(root)
     root.mainloop()
