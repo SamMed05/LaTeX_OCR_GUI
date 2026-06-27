@@ -11,7 +11,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # Import the core OCR engine
 from pix2tex.cli import LatexOCR
 
-# Initialize the LatexOCR transformer model globally
 print("Initializing LatexOCR model...")
 try:
     ocr = LatexOCR()
@@ -44,12 +43,16 @@ class MathJaxOCRApp:
         self.current_latex = ""   # Stores the raw LaTeX string output from the OCR model
         self.setup_ui()
 
+        # Bind Ctrl+V (both lowercase and uppercase states) globally to the root window
+        self.root.bind("<Control-v>", self.paste_and_convert)
+        self.root.bind("<Control-V>", self.paste_and_convert)
+
     def setup_ui(self):
         # --- TOP CONTROL BAR ---
         top_frame = tk.Frame(self.root, bg="#ffffff")
         top_frame.pack(pady=10)
         
-        # Action button to trigger conversion
+        # Action button to trigger conversion manually
         self.btn = ttk.Button(
             top_frame, 
             text="Convert Clipboard Image", 
@@ -116,14 +119,14 @@ class MathJaxOCRApp:
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.canvas.get_tk_widget().configure(bg="#ffffff")
 
-        # --- BOTTOM SECTION: TEXT OUTPUT & COPY BUTTON ---
+        # --- BOTTOM SECTION: TEXT OUTPUT & UTILITY BUTTONS ---
         output_box = tk.LabelFrame(
             self.root, text=" LaTeX / MathJax Code Output ", 
             bg="#ffffff", fg="#4b5563", font=('Helvetica', 9, 'bold'), bd=1, relief=tk.SOLID
         )
         output_box.pack(fill=tk.X, padx=20, pady=10)
         
-        # ScrolledText provides a scrollable multi-line textbox (height reduced slightly for visual balance)
+        # ScrolledText provides a scrollable multi-line textbox
         self.output = scrolledtext.ScrolledText(
             output_box, width=80, height=5,
             font=('Consolas', 10), bg="#f9fafb", fg="#1f2937", 
@@ -131,13 +134,26 @@ class MathJaxOCRApp:
         )
         self.output.pack(fill=tk.BOTH, expand=True, padx=8, pady=(6, 2))
 
-        # NEW: The copy button to append contents to system clipboard
+        # Control container frame to place utilities side-by-side at the bottom right
+        action_bar = tk.Frame(output_box, bg="#ffffff")
+        action_bar.pack(anchor=tk.E, padx=8, pady=(2, 6))
+
+        # Search & Replace Button
+        self.search_btn = ttk.Button(
+            action_bar,
+            text="Find & Replace",
+            width=3,
+            command=self.open_search_replace_dialog
+        )
+        self.search_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        # The copy button to append contents to system clipboard
         self.copy_btn = ttk.Button(
-            output_box,
+            action_bar,
             text="Copy to Clipboard",
             command=self.copy_to_clipboard
         )
-        self.copy_btn.pack(anchor=tk.E, padx=8, pady=(2, 6))
+        self.copy_btn.pack(side=tk.LEFT)
 
     def handle_inline_toggle(self):
         """Enforces mutual exclusion. If Inline is selected, uncheck Block Display."""
@@ -175,10 +191,9 @@ class MathJaxOCRApp:
         return None
 
     def copy_to_clipboard(self):
-        """NEW: Copies current text box contents to system clipboard with visual feedback."""
+        """Copies current text box contents to system clipboard with visual feedback."""
         text_to_copy = self.output.get("1.0", tk.END).strip()
         
-        # Avoid copying system errors or empty states
         if text_to_copy and not text_to_copy.startswith("Error:"):
             self.root.clipboard_clear()
             self.root.clipboard_append(text_to_copy)
@@ -187,11 +202,65 @@ class MathJaxOCRApp:
             self.copy_btn.config(text="Copied!")
             self.root.after(1500, lambda: self.copy_btn.config(text="Copy to Clipboard"))
 
-    def paste_and_convert(self):
+    # Search and Replace modal dialog logic
+    def open_search_replace_dialog(self):
+        """Spawns a clean helper window to find and replace substrings inside the output box."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Find & Replace")
+        dialog.geometry("320x140")
+        dialog.resizable(False, False)
+        dialog.configure(bg="#ffffff")
+        
+        # Focus handling: forces focus to popup and keeps it on top of main window
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Find Entry Input
+        tk.Label(dialog, text="Find:", bg="#ffffff", fg="#4b5563", font=('Helvetica', 9)).grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        find_entry = tk.Entry(dialog, width=22, font=('Consolas', 10), highlightthickness=1, highlightbackground="#e5e7eb")
+        find_entry.grid(row=0, column=1, padx=10, pady=10)
+        find_entry.focus_set()
+
+        # Replace Entry Input
+        tk.Label(dialog, text="Replace with:", bg="#ffffff", fg="#4b5563", font=('Helvetica', 9)).grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        replace_entry = tk.Entry(dialog, width=22, font=('Consolas', 10), highlightthickness=1, highlightbackground="#e5e7eb")
+        replace_entry.grid(row=1, column=1, padx=10, pady=5)
+
+        def execute_replace():
+            find_str = find_entry.get()
+            replace_str = replace_entry.get()
+            if find_str:
+                # Read current content from the textbox, swap values, and reinsert
+                content = self.output.get("1.0", tk.END)
+                updated_content = content.replace(find_str, replace_str)
+                
+                self.output.delete("1.0", tk.END)
+                self.output.insert(tk.END, updated_content.strip())
+                
+                # Sync back adjustments into the background storage variable
+                self.current_latex = self.output.get("1.0", tk.END).strip()
+                # Strip out wrappers if they are checked to preserve pure variable value
+                if self.inline_var.get():
+                    self.current_latex = self.current_latex.removeprefix("\\(").removesuffix("\\)")
+                elif self.block_var.get():
+                    self.current_latex = self.current_latex.removeprefix("$$").removesuffix("$$")
+                
+                dialog.destroy()
+
+        # Action execution button inside dialog
+        action_btn = ttk.Button(dialog, text="Replace All", command=execute_replace)
+        action_btn.grid(row=2, column=0, columnspan=2, pady=12)
+
+    # UPDATED: Added an optional event argument to support Tkinter's event-binding architecture
+    def paste_and_convert(self, event=None):
         """Main execution flow: Extracts image, triggers OCR, updates rendering & text outputs."""
         try:
             img = self.image_from_clipboard()
             if img is None:
+                # Intelligent intercept: If triggered by Ctrl+V keyboard shortcut, but clipboard has text data, 
+                # do not raise an error window. Pass execution back so text fields paste natively.
+                if event is not None:
+                    return
                 raise ValueError("No image found in clipboard. Copy a formula screenshot first!")
 
             # Process image thumbnail resizing for preview UI
@@ -210,9 +279,11 @@ class MathJaxOCRApp:
             # Clear former plots and use Matplotlib math engine to render LaTeX live
             self.ax.clear()
             self.ax.axis('off')
-            # Passing standard text within '$...$' tells matplotlib to parse it mathematically
             self.ax.text(0.5, 0.5, f"${self.current_latex}$", size=16, va='center', ha='center', color='#111827')
             self.canvas.draw()
+
+            # Return 'break' to intercept text-paste handling if an image was processed successfully via key shortcut
+            return "break"
 
         except Exception as e:
             # Handle empty clipboard data or missing dependencies gracefully inside UI
