@@ -7,6 +7,11 @@ I was tired of SimpleTex Server Peak Time restrictions, so here's an open source
 
 ![screenshot](screenshot.png)
 
+> [!WARNING]
+> **Disk Space & Initial Setup Delay**
+> * **Storage Requirements:** Because this application relies on deep learning via `pix2tex`, installing the dependencies will pull down **PyTorch (`torch`)**. This will consume **between 2 GB to 4 GB of disk space** depending on your environment.
+> * **First-Run:** The very first time you attempt to convert an image, the application will take a while to respond. In the background, `pix2tex` must automatically download its trained neural network weights (~1 GB) from the internet into your local user cache folder (`~/.cache/pix2tex`). Ensure you have a stable internet connection on the first run; subsequent conversions will happen entirely offline and much faster.
+
 ## Features
 
 * **Instant Startup:** The model loads in a background thread so the UI appears immediately.
